@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Flat Accounts Viewer</title>
+
+  <!-- PDF libraries -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+
+  <style>
+    body {
+      font-family: 'Georgia', serif;
+      background: #fefcf9;
+      margin: 0;
+      padding: 20px;
+      color: #1c1b1a;
+    }
+    h1 {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    .person-section {
+      background: #fff;
+      margin: 20px auto;
+      padding: 20px;
+      border-radius: 0;
+      max-width: 800px;
+      border: 1px solid #d4cfc8;
+    }
+    h2 {
+      border-bottom: 1px solid #ddd;
+      padding-bottom: 8px;
+      margin-bottom: 16px;
+      font-size: 20px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+      background: #fefcf9;
+    }
+    th, td {
+      padding: 10px;
+      border: 1px solid #d4cfc8;
+      text-align: left;
+      font-size: 14px;
+    }
+    th {
+      background: #f0ece7;
+      font-weight: 500;
+    }
+    #audit-trail {
+      max-width: 800px;
+      margin: 0 auto 30px;
+      padding: 0;
+    }
+    #audit-log-list {
+      padding-left: 20px;
+      list-style: disc;
+      color: #1c1b1a;
+      font-size: 14px;
+    }
+    #audit-log-list li {
+      margin-bottom: 6px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- LOGIN SCREEN -->
+  <div id="login-container" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;">
+    <h2>Login to View Contributions</h2>
+    <input type="password" id="passwordInput" placeholder="Enter Password" style="padding:10px;margin:10px;width:200px;" />
+    <button onclick="checkPassword()" style="padding:10px 20px;">Login</button>
+    <p id="login-error" style="color:red;"></p>
+  </div>
+
+  <!-- MAIN CONTENT -->
+  <div id="viewer-content" style="display:none;">
+    <h1>Person-wise Contributions</h1>
+
+    <div style="text-align: right; margin-bottom: 10px;">
+      <button onclick="exportToPDF()" style="padding:6px 12px; font-size:13px;">📄 Export PDF</button>
+    </div>
+
+    <!-- Audit Trail -->
+    <div id="audit-trail">
+      <h2 style="font-size:18px; border-bottom: 1px solid #ccc;">Audit Trail (Last 5 Entries)</h2>
+      <ul id="audit-log-list"></ul>
+    </div>
+
+    <!-- Contribution Container -->
+    <div id="person-container"></div>
+  </div>
+
+  <script>
+    const months = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+
+    function loadPersonWiseContributions() {
+      const personMap = {};
+
+      months.forEach((month, monthIndex) => {
+        const entries = JSON.parse(localStorage.getItem(`entries-${month}`) || '[]');
+        entries.forEach(entry => {
+          if (entry.type === 'Receipt' && entry.name !== 'Transfer from previous month') {
+            if (!personMap[entry.name]) {
+              personMap[entry.name] = { monthly: Array(12).fill(0), total: 0 };
+            }
+            personMap[entry.name].monthly[monthIndex] += Number(entry.amount);
+            personMap[entry.name].total += Number(entry.amount);
+          }
+        });
+      });
+
+      const container = document.getElementById("person-container");
+      container.innerHTML = '';
+      Object.keys(personMap).forEach(name => {
+        const section = document.createElement('div');
+        section.className = 'person-section';
+        section.innerHTML = `<h2>${name}</h2>`;
+
+        const table = document.createElement('table');
+        const headerRow = document.createElement('tr');
+        months.forEach(m => {
+          const th = document.createElement('th');
+          th.textContent = m;
+          headerRow.appendChild(th);
+        });
+        table.appendChild(headerRow);
+
+        const dataRow = document.createElement('tr');
+        personMap[name].monthly.forEach(amt => {
+          const td = document.createElement('td');
+          td.textContent = amt ? '₹' + amt : '-';
+          dataRow.appendChild(td);
+        });
+        table.appendChild(dataRow);
+
+        section.appendChild(table);
+
+        const totalRow = document.createElement('tr');
+        const totalCell = document.createElement('td');
+        totalCell.colSpan = 12;
+        totalCell.style.textAlign = 'right';
+        totalCell.style.fontWeight = 'bold';
+        totalCell.textContent = 'Total Contribution: ₹' + personMap[name].total;
+        totalRow.appendChild(totalCell);
+
+        const totalTable = document.createElement('table');
+        totalTable.appendChild(totalRow);
+        section.appendChild(totalTable);
+
+        container.appendChild(section);
+      });
+    }
+
+    function loadAuditTrail() {
+      const logs = JSON.parse(localStorage.getItem("auditTrail") || "[]");
+      const list = document.getElementById("audit-log-list");
+      list.innerHTML = "";
+
+      if (logs.length === 0) {
+        list.innerHTML = "<li>No actions recorded yet.</li>";
+        return;
+      }
+
+      const lastFive = logs.slice(-5).reverse();
+      lastFive.forEach(log => {
+        const li = document.createElement("li");
+        li.textContent = `${log.date} — ${log.action}`;
+        list.appendChild(li);
+      });
+    }
+
+    // ✅ Updated Export Function
+    function exportToPDF() {
+      const { jsPDF } = window.jspdf;
+      if (!jsPDF) {
+        alert("jsPDF not loaded.");
+        return;
+      }
+
+      const doc = new jsPDF();
+      const people = document.querySelectorAll(".person-section");
+
+      people.forEach((section, index) => {
+        const name = section.querySelector("h2")?.innerText || "";
+        const headers = Array.from(section.querySelectorAll("table:nth-of-type(1) th")).map(th => th.innerText);
+        const values = Array.from(section.querySelectorAll("table:nth-of-type(1) td")).map(td => {
+          return td.innerText.startsWith('₹') || td.innerText === '-' ? td.innerText : '₹' + td.innerText;
+        });
+
+        const rowCount = headers.length;
+        const tableData = [values.slice(0, rowCount)];
+
+        if (index > 0) doc.addPage();
+        doc.setFontSize(14);
+        doc.text(name, 14, 20);
+
+        doc.autoTable({
+          head: [headers],
+          body: tableData,
+          startY: 30,
+          styles: {
+            fontSize: 10,
+            cellPadding: 2,
+          },
+          headStyles: {
+            fillColor: [240, 236, 231],
+            textColor: 0,
+            fontStyle: 'normal'
+          },
+        });
+
+        const total = section.querySelector("table:nth-of-type(2) td")?.innerText || "";
+        const formattedTotal = total.includes('₹') ? total : '₹' + total.replace(/[^\d]/g, '');
+
+        doc.setFontSize(10);
+        doc.text("Total Contribution: " + formattedTotal, 14, doc.lastAutoTable.finalY + 10);
+      });
+
+      doc.save("PersonWiseContributions.pdf");
+    }
+
+    // Password check (Akansha1234)
+    function checkPassword() {
+      const input = document.getElementById("passwordInput").value;
+      const correctPassword = "Akansha1234";
+
+      if (input === correctPassword) {
+        document.getElementById("login-container").style.display = "none";
+        document.getElementById("viewer-content").style.display = "block";
+        loadAuditTrail();
+        loadPersonWiseContributions();
+      } else {
+        document.getElementById("login-error").textContent = "Incorrect password. Please try again.";
+      }
+    }
+  </script>
+
+<!-- Made by Harsh Raj -->
+</body>
+</html>
