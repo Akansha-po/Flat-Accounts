@@ -2,11 +2,11 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="robots" content="noindex, nofollow" />
+  <meta name="robots" content="noindex, nofollow">
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Flat Accounts Viewer</title>
 
-  <!-- PDF export libraries -->
+  <!-- PDF Libraries -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
 
@@ -70,7 +70,7 @@
 </head>
 <body>
 
-  <!-- Login Screen -->
+  <!-- LOGIN SCREEN -->
   <div id="login-container" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;">
     <h2>Login to View Contributions</h2>
     <input type="password" id="passwordInput" placeholder="Enter Password" style="padding:10px;margin:10px;width:200px;" />
@@ -78,12 +78,19 @@
     <p id="login-error" style="color:red;"></p>
   </div>
 
-  <!-- Viewer Content -->
+  <!-- MAIN CONTENT -->
   <div id="viewer-content" style="display:none;">
     <h1>Person-wise Contributions</h1>
 
     <div style="text-align: right; margin-bottom: 10px;">
       <button onclick="exportToPDF()" style="padding:6px 12px; font-size:13px;">📄 Export PDF</button>
+    </div>
+
+    <div style="text-align: right; margin-bottom: 20px;">
+      <label style="font-size: 13px;">
+        📥 Import JSON:
+        <input type="file" id="jsonInput" accept=".json" onchange="handleFileUpload(event)" />
+      </label>
     </div>
 
     <div id="audit-trail">
@@ -100,39 +107,59 @@
       'July', 'August', 'September', 'October', 'November', 'December'
     ];
 
-    const jsonURL = 'https://raw.githubusercontent.com/Akansha-po/flat-editor/refs/heads/main/data.json';
+    function checkPassword() {
+      const input = document.getElementById("passwordInput").value;
+      const correctPassword = "Akansha1234";
 
-    async function loadFromJSON() {
-      const res = await fetch(jsonURL);
-      const data = await res.json();
-
-      // Clear existing data
-      months.forEach(month => localStorage.removeItem(`entries-${month}`));
-
-      // Save entries month-wise
-      data.entries.forEach(entry => {
-        const month = new Date(entry.date).toLocaleString('en-US', { month: 'long' });
-        const existing = JSON.parse(localStorage.getItem(`entries-${month}`) || '[]');
-        existing.push(entry);
-        localStorage.setItem(`entries-${month}`, JSON.stringify(existing));
-      });
-
-      localStorage.setItem("auditTrail", JSON.stringify(data.auditTrail || []));
+      if (input === correctPassword) {
+        document.getElementById("login-container").style.display = "none";
+        document.getElementById("viewer-content").style.display = "block";
+      } else {
+        document.getElementById("login-error").textContent = "Incorrect password. Please try again.";
+      }
     }
 
-    function loadPersonWiseContributions() {
-      const personMap = {};
-      months.forEach((month, monthIndex) => {
-        const entries = JSON.parse(localStorage.getItem(`entries-${month}`) || '[]');
-        entries.forEach(entry => {
-          if (entry.type === 'Receipt' && entry.name !== 'Transfer from previous month') {
-            if (!personMap[entry.name]) {
-              personMap[entry.name] = { monthly: Array(12).fill(0), total: 0 };
-            }
-            personMap[entry.name].monthly[monthIndex] += Number(entry.amount);
-            personMap[entry.name].total += Number(entry.amount);
+    function handleFileUpload(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function (e) {
+        try {
+          const data = JSON.parse(e.target.result);
+          if (!data.entries || !data.auditTrail) {
+            alert("Invalid JSON format.");
+            return;
           }
-        });
+          renderFromJSON(data);
+        } catch (err) {
+          alert("Error reading file.");
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    function renderFromJSON(data) {
+      // Audit Trail
+      const auditList = document.getElementById("audit-log-list");
+      auditList.innerHTML = "";
+      data.auditTrail.slice(-5).reverse().forEach(log => {
+        const li = document.createElement("li");
+        li.textContent = `${log.date} — ${log.action}`;
+        auditList.appendChild(li);
+      });
+
+      // Contributions
+      const personMap = {};
+      data.entries.forEach(entry => {
+        if (entry.type === 'Receipt' && entry.name !== 'Transfer from previous month') {
+          const monthIndex = new Date(entry.date).getMonth();
+          if (!personMap[entry.name]) {
+            personMap[entry.name] = { monthly: Array(12).fill(0), total: 0 };
+          }
+          personMap[entry.name].monthly[monthIndex] += Number(entry.amount);
+          personMap[entry.name].total += Number(entry.amount);
+        }
       });
 
       const container = document.getElementById("person-container");
@@ -168,29 +195,12 @@
         totalCell.style.fontWeight = 'bold';
         totalCell.textContent = 'Total Contribution: ₹' + personMap[name].total;
         totalRow.appendChild(totalCell);
+
         const totalTable = document.createElement('table');
         totalTable.appendChild(totalRow);
         section.appendChild(totalTable);
 
         container.appendChild(section);
-      });
-    }
-
-    function loadAuditTrail() {
-      const logs = JSON.parse(localStorage.getItem("auditTrail") || "[]");
-      const list = document.getElementById("audit-log-list");
-      list.innerHTML = "";
-
-      if (logs.length === 0) {
-        list.innerHTML = "<li>No actions recorded yet.</li>";
-        return;
-      }
-
-      const lastFive = logs.slice(-5).reverse();
-      lastFive.forEach(log => {
-        const li = document.createElement("li");
-        li.textContent = `${log.date} — ${log.action}`;
-        list.appendChild(li);
       });
     }
 
@@ -207,7 +217,10 @@
       people.forEach((section, index) => {
         const name = section.querySelector("h2")?.innerText || "";
         const headers = Array.from(section.querySelectorAll("table:nth-of-type(1) th")).map(th => th.innerText);
-        const values = Array.from(section.querySelectorAll("table:nth-of-type(1) td")).map(td => td.innerText.startsWith('₹') || td.innerText === '-' ? td.innerText : '₹' + td.innerText);
+        const values = Array.from(section.querySelectorAll("table:nth-of-type(1) td")).map(td => {
+          return td.innerText.startsWith('₹') || td.innerText === '-' ? td.innerText : '₹' + td.innerText;
+        });
+
         const rowCount = headers.length;
         const tableData = [values.slice(0, rowCount)];
 
@@ -232,29 +245,15 @@
 
         const total = section.querySelector("table:nth-of-type(2) td")?.innerText || "";
         const formattedTotal = total.includes('₹') ? total : '₹' + total.replace(/[^\d]/g, '');
+
         doc.setFontSize(10);
         doc.text("Total Contribution: " + formattedTotal, 14, doc.lastAutoTable.finalY + 10);
       });
 
       doc.save("PersonWiseContributions.pdf");
     }
-
-    function checkPassword() {
-      const input = document.getElementById("passwordInput").value;
-      const correctPassword = "Akansha1234";
-      if (input === correctPassword) {
-        document.getElementById("login-container").style.display = "none";
-        document.getElementById("viewer-content").style.display = "block";
-        loadFromJSON().then(() => {
-          loadPersonWiseContributions();
-          loadAuditTrail();
-        });
-      } else {
-        document.getElementById("login-error").textContent = "Incorrect password. Please try again.";
-      }
-    }
   </script>
 
-<!-- Made by Harsh Raj -->
+  <!-- Made by Harsh Raj -->
 </body>
 </html>
