@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="robots" content="noindex, nofollow">
+  <meta name="robots" content="noindex, nofollow" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Flat Accounts Viewer</title>
 
@@ -107,22 +107,35 @@
       'July', 'August', 'September', 'October', 'November', 'December'
     ];
 
+    const PASSWORD = "Akansha1234";
+    const GITHUB_JSON_URL = "https://raw.githubusercontent.com/Akansha-po/flat-editor/refs/heads/main/data.json";
+
     function checkPassword() {
       const input = document.getElementById("passwordInput").value;
-      const correctPassword = "Akansha1234";
-
-      if (input === correctPassword) {
+      if (input === PASSWORD) {
         document.getElementById("login-container").style.display = "none";
         document.getElementById("viewer-content").style.display = "block";
+        fetchJSONFromGitHub();
       } else {
         document.getElementById("login-error").textContent = "Incorrect password. Please try again.";
+      }
+    }
+
+    async function fetchJSONFromGitHub() {
+      try {
+        const response = await fetch(GITHUB_JSON_URL);
+        if (!response.ok) throw new Error("Failed to fetch data from GitHub.");
+        const data = await response.json();
+        renderFromJSON(data);
+      } catch (err) {
+        alert("Could not load data.json from GitHub.");
+        console.error(err);
       }
     }
 
     function handleFileUpload(event) {
       const file = event.target.files[0];
       if (!file) return;
-
       const reader = new FileReader();
       reader.onload = function (e) {
         try {
@@ -245,7 +258,6 @@
 
         const total = section.querySelector("table:nth-of-type(2) td")?.innerText || "";
         const formattedTotal = total.includes('₹') ? total : '₹' + total.replace(/[^\d]/g, '');
-
         doc.setFontSize(10);
         doc.text("Total Contribution: " + formattedTotal, 14, doc.lastAutoTable.finalY + 10);
       });
@@ -254,6 +266,6 @@
     }
   </script>
 
-  <!-- Made by Harsh Raj -->
+<!-- Made by Harsh Raj -->
 </body>
 </html>
