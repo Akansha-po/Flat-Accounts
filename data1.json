@@ -1,0 +1,46 @@
+{
+  "entries": [
+    {
+      "type": "Receipt",
+      "name": "Raj Kishor Prasad",
+      "amount": 1000,
+      "date": "2025-07-01"
+    },
+    {
+      "type": "Receipt",
+      "name": "Transfer from previous month",
+      "amount": 1000,
+      "date": "2024-08-01"
+    },
+    {
+      "type": "Receipt",
+      "name": "Transfer from previous month",
+      "amount": 1000,
+      "date": "2024-09-01"
+    },
+    {
+      "type": "Receipt",
+      "name": "Transfer from previous month",
+      "amount": 1000,
+      "date": "2024-10-01"
+    },
+    {
+      "type": "Receipt",
+      "name": "Transfer from previous month",
+      "amount": 1000,
+      "date": "2024-11-01"
+    },
+    {
+      "type": "Receipt",
+      "name": "Transfer from previous month",
+      "amount": 1000,
+      "date": "2024-12-01"
+    }
+  ],
+  "auditTrail": [
+    {
+      "action": "Added Receipt: ₹1000 for Raj Kishor Prasad on 2025-07-01",
+      "date": "1 Jul 2025, 7:10 pm"
+    }
+  ]
+}
