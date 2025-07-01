@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Flat Accounts Viewer</title>
 
-  <!-- PDF libraries -->
+  <!-- PDF Libraries -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
 
@@ -86,13 +86,18 @@
       <button onclick="exportToPDF()" style="padding:6px 12px; font-size:13px;">📄 Export PDF</button>
     </div>
 
-    <!-- Audit Trail -->
+    <div style="text-align: right; margin-bottom: 20px;">
+      <label style="font-size: 13px;">
+        📥 Import JSON:
+        <input type="file" id="jsonInput" accept=".json" onchange="handleFileUpload(event)" />
+      </label>
+    </div>
+
     <div id="audit-trail">
       <h2 style="font-size:18px; border-bottom: 1px solid #ccc;">Audit Trail (Last 5 Entries)</h2>
       <ul id="audit-log-list"></ul>
     </div>
 
-    <!-- Contribution Container -->
     <div id="person-container"></div>
   </div>
 
@@ -102,20 +107,59 @@
       'July', 'August', 'September', 'October', 'November', 'December'
     ];
 
-    function loadPersonWiseContributions() {
-      const personMap = {};
+    function checkPassword() {
+      const input = document.getElementById("passwordInput").value;
+      const correctPassword = "Akansha1234";
 
-      months.forEach((month, monthIndex) => {
-        const entries = JSON.parse(localStorage.getItem(`entries-${month}`) || '[]');
-        entries.forEach(entry => {
-          if (entry.type === 'Receipt' && entry.name !== 'Transfer from previous month') {
-            if (!personMap[entry.name]) {
-              personMap[entry.name] = { monthly: Array(12).fill(0), total: 0 };
-            }
-            personMap[entry.name].monthly[monthIndex] += Number(entry.amount);
-            personMap[entry.name].total += Number(entry.amount);
+      if (input === correctPassword) {
+        document.getElementById("login-container").style.display = "none";
+        document.getElementById("viewer-content").style.display = "block";
+      } else {
+        document.getElementById("login-error").textContent = "Incorrect password. Please try again.";
+      }
+    }
+
+    function handleFileUpload(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function (e) {
+        try {
+          const data = JSON.parse(e.target.result);
+          if (!data.entries || !data.auditTrail) {
+            alert("Invalid JSON format.");
+            return;
           }
-        });
+          renderFromJSON(data);
+        } catch (err) {
+          alert("Error reading file.");
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    function renderFromJSON(data) {
+      // Audit Trail
+      const auditList = document.getElementById("audit-log-list");
+      auditList.innerHTML = "";
+      data.auditTrail.slice(-5).reverse().forEach(log => {
+        const li = document.createElement("li");
+        li.textContent = `${log.date} — ${log.action}`;
+        auditList.appendChild(li);
+      });
+
+      // Contributions
+      const personMap = {};
+      data.entries.forEach(entry => {
+        if (entry.type === 'Receipt' && entry.name !== 'Transfer from previous month') {
+          const monthIndex = new Date(entry.date).getMonth();
+          if (!personMap[entry.name]) {
+            personMap[entry.name] = { monthly: Array(12).fill(0), total: 0 };
+          }
+          personMap[entry.name].monthly[monthIndex] += Number(entry.amount);
+          personMap[entry.name].total += Number(entry.amount);
+        }
       });
 
       const container = document.getElementById("person-container");
@@ -160,25 +204,6 @@
       });
     }
 
-    function loadAuditTrail() {
-      const logs = JSON.parse(localStorage.getItem("auditTrail") || "[]");
-      const list = document.getElementById("audit-log-list");
-      list.innerHTML = "";
-
-      if (logs.length === 0) {
-        list.innerHTML = "<li>No actions recorded yet.</li>";
-        return;
-      }
-
-      const lastFive = logs.slice(-5).reverse();
-      lastFive.forEach(log => {
-        const li = document.createElement("li");
-        li.textContent = `${log.date} — ${log.action}`;
-        list.appendChild(li);
-      });
-    }
-
-    // ✅ Updated Export Function
     function exportToPDF() {
       const { jsPDF } = window.jspdf;
       if (!jsPDF) {
@@ -227,23 +252,8 @@
 
       doc.save("PersonWiseContributions.pdf");
     }
-
-    // Password check (Akansha1234)
-    function checkPassword() {
-      const input = document.getElementById("passwordInput").value;
-      const correctPassword = "Akansha1234";
-
-      if (input === correctPassword) {
-        document.getElementById("login-container").style.display = "none";
-        document.getElementById("viewer-content").style.display = "block";
-        loadAuditTrail();
-        loadPersonWiseContributions();
-      } else {
-        document.getElementById("login-error").textContent = "Incorrect password. Please try again.";
-      }
-    }
   </script>
 
-<!-- Made by Harsh Raj -->
+  <!-- Made by Harsh Raj -->
 </body>
 </html>
